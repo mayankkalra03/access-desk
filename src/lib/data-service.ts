@@ -8,7 +8,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { Account, AccountInput, Environment, Tag } from "@/types";
+import { Account, AccountInput, Environment, Tag, SEEDED_ENV_IDS } from "@/types";
 import { INITIAL_ENVIRONMENTS } from "./seed-data";
 import { encryptCredential, decryptCredential, EncryptedData } from "./crypto";
 
@@ -20,20 +20,30 @@ class DataService {
 
     try {
       const snap = await getDocs(collection(db, "environments"));
+      let envList: Environment[] = [];
       if (!snap.empty) {
-        return snap.docs.map((d) => d.data() as Environment);
+        envList = snap.docs.map((d) => d.data() as Environment);
+      } else {
+        if (!this.seeded) {
+          this.seeded = true;
+          const batch = writeBatch(db);
+          for (const env of INITIAL_ENVIRONMENTS) {
+            batch.set(doc(db, "environments", env.id), env);
+          }
+          await batch.commit();
+        }
+        envList = INITIAL_ENVIRONMENTS;
       }
 
-      // Seed initial environments into Firestore once if collection is empty
-      if (!this.seeded) {
-        this.seeded = true;
-        const batch = writeBatch(db);
-        for (const env of INITIAL_ENVIRONMENTS) {
-          batch.set(doc(db, "environments", env.id), env);
-        }
-        await batch.commit();
-      }
-      return INITIAL_ENVIRONMENTS;
+      // Sort strictly by the canonical order: DEV1, DEV2, DEV4, SIT1, SIT2, SIT4, SIT5, SIT10, TRN, UAT1, UAT2, UAT3, STG1, STG2, STG3
+      return envList.sort((a, b) => {
+        const idxA = (SEEDED_ENV_IDS as readonly string[]).indexOf(a.id);
+        const idxB = (SEEDED_ENV_IDS as readonly string[]).indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.name.localeCompare(b.name);
+      });
     } catch (e) {
       console.warn("Failed to fetch environments:", e);
       return INITIAL_ENVIRONMENTS;
