@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
+    }
+    
+    // Account Credentials - STRICTLY DENIED TO ALL CLIENT ACCESS.
+    // Only Firebase Cloud Functions using Admin SDK can read or write credentials.
+    match /account_credentials/{credentialId} {
+      allow read, write: if false;
+    }
+
+    // Environments: Authenticated users can read.
+    match /environments/{envId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // Accounts metadata: Authenticated users can read and write metadata.
+    // Passwords MUST NEVER be stored here.
+    match /accounts/{accountId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && !request.resource.data.keys().hasAny(['password', 'plainPassword']);
+      allow delete: if isAuthenticated();
+    }
+
+    // Tags: Authenticated users can read and manage.
+    match /tags/{tagId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // System configuration (authorization, owner allowlist):
+    // Read allowed for authenticated users to verify authorization state; write restricted to Admin SDK.
+    match /system_config/{configDoc} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+  }
+}
