@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   title: "AccessDesk — Environment & Account Manager",
   description:
     "One place. Every environment. AccessDesk is an internal engineering platform for managing healthcare insurance platform environments, Consumer and Worker portals, and secure test account credentials.",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

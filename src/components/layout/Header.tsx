@@ -21,16 +21,16 @@ export function Header({ onOpenSearch }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 border-b border-slate-200 bg-white px-6 flex items-center justify-between z-20">
+    <header className="h-16 border-b border-slate-200 bg-white px-3 sm:px-6 flex items-center justify-between z-20">
       {/* Global Search Input Trigger */}
       <div className="flex-1 max-w-xl">
         <button
           onClick={onOpenSearch}
           className="w-full flex items-center justify-between px-3.5 py-2 text-sm text-slate-400 bg-slate-50 border border-slate-200 rounded-lg hover:border-slate-300 hover:bg-slate-100/60 transition-all text-left group"
         >
-          <div className="flex items-center space-x-2.5">
-            <Search className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
-            <span className="text-slate-500 font-normal">
+          <div className="flex items-center space-x-2.5 overflow-hidden">
+            <Search className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors flex-shrink-0" />
+            <span className="text-slate-500 font-normal truncate">
               Search accounts, environments, tags...
             </span>
           </div>
