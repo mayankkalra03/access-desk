@@ -145,7 +145,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let targetEmail = cleanId;
 
       // If user provided a username without @, resolve email from Firestore
-      if (!cleanId.includes("@") && db) {
+      if (!cleanId.includes("@")) {
+        if (!db) {
+          throw new Error("Database service unavailable. Please sign in with your email address.");
+        }
         try {
           const uQuery = query(
             collection(db, "app_users"),
@@ -154,18 +157,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const uSnap = await getDocs(uQuery);
           if (uSnap.empty) {
             throw new Error(
-              "No account found with this username. Please verify your spelling or create an account."
+              `No account found with username "${cleanId}". If you previously created this account in local offline mode, please click "Create Account" to register on the live system.`
             );
           }
-          targetEmail = uSnap.docs[0].data().email;
+          const userData = uSnap.docs[0].data();
+          if (!userData?.email) {
+            throw new Error("No email linked to this username. Please sign in using your email address.");
+          }
+          targetEmail = userData.email;
         } catch (err: any) {
-          if (err.message && err.message.includes("No account found")) {
+          if (err.message && (err.message.includes("No account found") || err.message.includes("No email linked"))) {
             throw err;
           }
+          throw new Error(
+            err.message || "Unable to look up username. Please try signing in with your email address."
+          );
         }
       }
 
-      const cred = await signInWithEmailAndPassword(auth, targetEmail, password);
+      let cred;
+      try {
+        cred = await signInWithEmailAndPassword(auth, targetEmail, password);
+      } catch (authErr: any) {
+        if (
+          authErr.code === "auth/invalid-credential" ||
+          authErr.code === "auth/wrong-password" ||
+          authErr.code === "auth/user-not-found"
+        ) {
+          throw new Error("Invalid username/email or password. Please verify your credentials.");
+        }
+        if (authErr.code === "auth/too-many-requests") {
+          throw new Error("Too many unsuccessful login attempts. Please try again later.");
+        }
+        throw new Error(authErr.message || "Failed to sign in. Please verify your credentials.");
+      }
+
       setUser(cred.user);
 
       let resolvedUsername = cleanId.includes("@")
@@ -264,9 +290,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (err.message && err.message.includes("already taken")) throw err;
       }
 
-      const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      let cred;
+      try {
+        cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      } catch (authErr: any) {
+        if (authErr.code === "auth/email-already-in-use") {
+          throw new Error("This email is already in use. Please sign in or use another email.");
+        }
+        if (authErr.code === "auth/weak-password") {
+          throw new Error("Password should be at least 6 characters.");
+        }
+        throw new Error(authErr.message || "Failed to create account.");
+      }
+
       if (cleanName) {
-        await updateProfile(cred.user, { displayName: cleanName });
+        try {
+          await updateProfile(cred.user, { displayName: cleanName });
+        } catch {}
       }
 
       // Save user profile mapping in Firestore

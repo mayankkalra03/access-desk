@@ -39,5 +39,15 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if false;
     }
+
+    // App Users directory:
+    // Read: Publicly readable so usernames can be resolved to email during sign-in
+    // and verified for availability during registration.
+    // Write: Authenticated users can manage their own user profile record.
+    match /app_users/{userId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
   }
 }
