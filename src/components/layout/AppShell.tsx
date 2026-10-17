@@ -13,6 +13,7 @@ import { dataService } from "@/lib/data-service";
 import { useToast } from "@/lib/toast-context";
 import { useAuth } from "@/lib/auth-context";
 import { SignInScreen } from "@/components/auth/SignInScreen";
+import { INITIAL_ENVIRONMENTS } from "@/lib/seed-data";
 
 export interface AppShellContextType {
   accounts: Account[];
@@ -124,8 +125,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    if (!profile) {
+      setAccounts([]);
+      setEnvironments(INITIAL_ENVIRONMENTS);
+      setTags([]);
+      memoryCache = null;
+      try {
+        localStorage.removeItem(DATA_CACHE_KEY);
+      } catch {}
+      setLoading(false);
+      return;
+    }
+
+    const cached = getCachedData();
+    if (!cached || !cached.accounts.length) {
+      setLoading(true);
+    }
     loadAllData();
-  }, []);
+  }, [profile?.uid]);
 
   // Global keyboard shortcut Cmd+K / Ctrl+K
   useEffect(() => {
