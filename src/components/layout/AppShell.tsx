@@ -175,7 +175,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const newTag: Tag = {
       id: `tag-${tagName.toLowerCase().replace(/[^a-z0-9]/g, "")}-${Date.now()}`,
       name: tagName,
-      category: "Custom",
+      description: "",
       color: "emerald",
       createdAt: new Date().toISOString(),
     };
@@ -184,6 +184,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     success("Tag created", tagName);
     return newTag;
   };
+
+  // Consolidate explicit tags collection with all unique tags present across accounts
+  const consolidatedTags: Tag[] = React.useMemo(() => {
+    const map = new Map<string, Tag>();
+    tags.forEach((t) => map.set(t.name.toLowerCase(), t));
+    accounts.forEach((acc) => {
+      acc.tags.forEach((tagName) => {
+        const lower = tagName.toLowerCase();
+        if (!map.has(lower)) {
+          map.set(lower, {
+            id: `tag-${lower}`,
+            name: tagName,
+            description: "",
+            createdAt: acc.createdAt || new Date().toISOString(),
+          });
+        }
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [tags, accounts]);
 
   const activeAccountEnv = selectedAccount
     ? environments.find((e) => e.id === selectedAccount.environmentId)
@@ -194,7 +214,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       value={{
         accounts,
         environments,
-        tags,
+        tags: consolidatedTags,
         refreshData: loadAllData,
         openAccountDetail,
         openEnvironmentDetail,
@@ -272,7 +292,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClose={() => setSelectedEnv(null)}
             onEdit={(env) => openEditEnvironment(env)}
             onAddAccount={(envId) => openAddAccount(envId)}
-            onSelectAccount={(acc) => setSelectedAccount(acc)}
+            onSelectAccount={(acc) => {
+              setSelectedEnv(null);
+              setSelectedAccount(acc);
+            }}
           />
 
           {/* Account Add / Edit Modal */}

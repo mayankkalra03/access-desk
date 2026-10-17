@@ -53,7 +53,7 @@ export interface Account {
   environmentId: string;
   portal: PortalType;
   role: RoleType;
-  product: ProductType;
+  product?: ProductType;
   tags: string[];
   organization?: string;
   notes?: string;
@@ -70,7 +70,7 @@ export type AccountInput = Omit<Account, "id" | "createdAt" | "updatedAt"> & {
 export interface Tag {
   id: string;
   name: string;
-  category: "Products" | "Payments" | "Enrollment" | "Custom";
+  category?: string;
   description?: string;
   color?: string;
   createdAt: string;
@@ -119,7 +119,7 @@ export const accountFormSchema = z
     password: z.string().min(4, "Password must be at least 4 characters").optional(),
     name: z.string().optional(),
     role: z.string().optional(),
-    product: z.enum(["ICHRA", "SHOP", "Both"]).optional().default("Both"),
+    product: z.string().optional(),
     tags: z.array(z.string()).default([]),
     organization: z.string().optional(),
     notes: z.string().optional(),

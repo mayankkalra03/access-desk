@@ -5,7 +5,6 @@ export interface AccountFilterOptions {
   environmentId?: string;
   portal?: string;
   role?: string;
-  product?: string;
   tags?: string[];
   tagMatchMode?: "all" | "any";
   sortBy?: "name" | "updatedAt" | "environmentId";
@@ -21,7 +20,6 @@ export function filterAccounts(
     environmentId = "",
     portal = "",
     role = "",
-    product = "",
     tags = [],
     tagMatchMode = "all",
     sortBy = "updatedAt",
@@ -46,10 +44,6 @@ export function filterAccounts(
       return false;
     }
 
-    // Product filter
-    if (product && product !== "all" && account.product !== product) {
-      return false;
-    }
 
     // Tag filter
     if (tags && tags.length > 0) {
@@ -69,7 +63,6 @@ export function filterAccounts(
       const matchEnv = account.environmentId.toLowerCase().includes(normalizedSearch);
       const matchRole = account.role.toLowerCase().includes(normalizedSearch);
       const matchPortal = account.portal.toLowerCase().includes(normalizedSearch);
-      const matchProduct = account.product.toLowerCase().includes(normalizedSearch);
       const matchTags = account.tags.some((t) => t.toLowerCase().includes(normalizedSearch));
       const matchOrg = account.organization?.toLowerCase().includes(normalizedSearch) || false;
       const matchNotes = account.notes?.toLowerCase().includes(normalizedSearch) || false;
@@ -80,7 +73,6 @@ export function filterAccounts(
         !matchEnv &&
         !matchRole &&
         !matchPortal &&
-        !matchProduct &&
         !matchTags &&
         !matchOrg &&
         !matchNotes
@@ -142,7 +134,6 @@ export function searchGlobal(
       account.environmentId.toLowerCase().includes(q) ||
       account.role.toLowerCase().includes(q) ||
       account.portal.toLowerCase().includes(q) ||
-      account.product.toLowerCase().includes(q) ||
       account.tags.some((t) => t.toLowerCase().includes(q)) ||
       (account.organization && account.organization.toLowerCase().includes(q)) ||
       (account.notes && account.notes.toLowerCase().includes(q))

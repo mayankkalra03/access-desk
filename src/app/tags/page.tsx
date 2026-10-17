@@ -22,17 +22,33 @@ export default function TagsPage() {
   const { success, error } = useToast();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Group tags by category
-  const categories = ["Products", "Payments", "Enrollment", "Custom"];
+  // Merge tags from tags collection with all unique tags found across accounts
+  const consolidatedTags: Tag[] = React.useMemo(() => {
+    const map = new Map<string, Tag>();
 
-  const filteredTags = tags.filter((t) => {
-    if (selectedCategory !== "all" && t.category !== selectedCategory) {
-      return false;
-    }
+    tags.forEach((t) => map.set(t.name.toLowerCase(), t));
+
+    accounts.forEach((acc) => {
+      acc.tags.forEach((tagName) => {
+        const lower = tagName.toLowerCase();
+        if (!map.has(lower)) {
+          map.set(lower, {
+            id: `tag-${lower}`,
+            name: tagName,
+            description: "",
+            createdAt: acc.createdAt || new Date().toISOString(),
+          });
+        }
+      });
+    });
+
+    return Array.from(map.values());
+  }, [tags, accounts]);
+
+  const filteredTags = consolidatedTags.filter((t) => {
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       const matchName = t.name.toLowerCase().includes(term);
@@ -81,7 +97,7 @@ export default function TagsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Breadcrumbs */}
       <nav className="flex items-center space-x-2 text-xs text-slate-400">
         <Link href="/" className="hover:text-slate-700">Home</Link>
@@ -96,7 +112,7 @@ export default function TagsPage() {
             Tags & Taxonomy
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Organize test accounts by products, payment flows, and enrollment lifecycle scenarios.
+            Organize and filter test accounts across environments.
           </p>
         </div>
 
@@ -110,8 +126,8 @@ export default function TagsPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-        <div className="relative flex-1 min-w-[240px]">
+      <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs">
+        <div className="relative w-full">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
@@ -120,22 +136,6 @@ export default function TagsPage() {
             placeholder="Search tags by name or scenario description..."
             className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-slate-50/50"
           />
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <span className="text-xs text-slate-500">Category:</span>
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:border-emerald-600 cursor-pointer"
-          >
-            <option value="all">All Categories</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
@@ -187,14 +187,13 @@ export default function TagsPage() {
                   </div>
                 </div>
 
-                <div className="mt-3">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    {tag.category}
-                  </span>
-                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">
-                    {tag.description || "Testing scenario tag"}
-                  </p>
-                </div>
+                {tag.description && tag.description.trim() ? (
+                  <div className="mt-3">
+                    <p className="text-xs text-slate-600 line-clamp-2">
+                      {tag.description}
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">

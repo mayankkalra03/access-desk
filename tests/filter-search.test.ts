@@ -116,24 +116,6 @@ describe("AccessDesk Filter & Search System", () => {
     expect(results[0].username).toBe("jane.doe");
   });
 
-  it("filters by Employer + SHOP", () => {
-    const results = filterAccounts(mockAccounts, {
-      role: "Employer",
-      product: "SHOP",
-    });
-    expect(results).toHaveLength(1);
-    expect(results[0].username).toBe("global.employer");
-  });
-
-  it("filters by Employer + Both", () => {
-    const results = filterAccounts(mockAccounts, {
-      role: "Employer",
-      product: "Both",
-    });
-    expect(results).toHaveLength(1);
-    expect(results[0].username).toBe("both.employer");
-  });
-
   it("filters by Any role + Renewals + UAT1", () => {
     const results = filterAccounts(mockAccounts, {
       environmentId: "UAT1",
