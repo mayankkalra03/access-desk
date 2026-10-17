@@ -203,7 +203,7 @@ export default function TagsPage() {
                 </span>
 
                 <Link
-                  href={`/accounts`}
+                  href="/accounts/"
                   className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 flex items-center"
                 >
                   <span>Filter Accounts</span>

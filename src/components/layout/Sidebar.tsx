@@ -36,19 +36,19 @@ export function Sidebar() {
     },
     {
       name: "Environments",
-      href: "/environments",
+      href: "/environments/",
       icon: Layers,
       isActive: pathname.startsWith("/environments"),
     },
     {
       name: "Accounts",
-      href: "/accounts",
+      href: "/accounts/",
       icon: Users,
       isActive: pathname.startsWith("/accounts"),
     },
     {
       name: "Tags",
-      href: "/tags",
+      href: "/tags/",
       icon: Tag,
       isActive: pathname.startsWith("/tags"),
     },

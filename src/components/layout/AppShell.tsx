@@ -46,14 +46,52 @@ export function useAppShell() {
   return React.useContext(AppShellContext);
 }
 
+const DATA_CACHE_KEY = "accessdesk_data_cache";
+
+interface CachedAppData {
+  environments: Environment[];
+  accounts: Account[];
+  tags: Tag[];
+}
+
+let memoryCache: CachedAppData | null = null;
+
+function getCachedData(): CachedAppData | null {
+  if (memoryCache) return memoryCache;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(DATA_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedAppData;
+    if (parsed && Array.isArray(parsed.environments) && Array.isArray(parsed.accounts)) {
+      memoryCache = parsed;
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedData(data: CachedAppData) {
+  memoryCache = data;
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(DATA_CACHE_KEY, JSON.stringify(data));
+  } catch {}
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { profile, loading: authLoading } = useAuth();
   const { success, error } = useToast();
 
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [environments, setEnvironments] = useState<Environment[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [accounts, setAccounts] = useState<Account[]>(() => getCachedData()?.accounts || []);
+  const [environments, setEnvironments] = useState<Environment[]>(() => getCachedData()?.environments || []);
+  const [tags, setTags] = useState<Tag[]>(() => getCachedData()?.tags || []);
+  const [loading, setLoading] = useState(() => {
+    const cached = getCachedData();
+    return !cached || (!cached.environments?.length && !cached.accounts?.length);
+  });
 
   // Modals & Drawers state
   const [searchOpen, setSearchOpen] = useState(false);
@@ -77,6 +115,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setEnvironments(envs);
       setAccounts(accs);
       setTags(tgs);
+      saveCachedData({ environments: envs, accounts: accs, tags: tgs });
     } catch (err: any) {
       console.error("Failed to load initial AccessDesk data:", err);
     } finally {
