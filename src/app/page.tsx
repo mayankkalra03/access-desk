@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Layers,
   ExternalLink,
@@ -18,6 +18,7 @@ import {
 import { useAppShell } from "@/components/layout/AppShell";
 import { Environment, Account } from "@/types";
 import { useToast } from "@/lib/toast-context";
+import { dataService } from "@/lib/data-service";
 
 export default function EnvironmentConsolePage() {
   const {
@@ -57,7 +58,6 @@ export default function EnvironmentConsolePage() {
         a.username.toLowerCase().includes(term) ||
         a.role.toLowerCase().includes(term) ||
         a.portal.toLowerCase().includes(term) ||
-        a.product.toLowerCase().includes(term) ||
         a.tags.some((t) => t.toLowerCase().includes(term))
     );
   }, [envAccounts, accountSearch]);
@@ -87,19 +87,34 @@ export default function EnvironmentConsolePage() {
     }
   };
 
-  const handleCopyUsername = (e: React.MouseEvent, username: string, accountId: string) => {
+  const handleCopyCredentials = async (e: React.MouseEvent, account: Account) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(username);
-    setCopiedKey(accountId);
-    success("Username copied", username);
-    setTimeout(() => setCopiedKey(null), 2000);
+    try {
+      const pwd = await dataService.revealAccountPassword(account.id);
+      const text = `${account.username}/${pwd}`;
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(account.id);
+      success("Credentials copied", text);
+      setTimeout(() => setCopiedKey(null), 2000);
+    } catch {
+      await navigator.clipboard.writeText(account.username);
+      setCopiedKey(account.id);
+      success("Username copied", account.username);
+      setTimeout(() => setCopiedKey(null), 2000);
+    }
   };
+
+  useEffect(() => {
+    const handleCloseAction = () => setOpenActionId(null);
+    window.addEventListener("click", handleCloseAction);
+    return () => window.removeEventListener("click", handleCloseAction);
+  }, []);
 
   const cpConfigured = Boolean(activeEnv?.cpUrl && activeEnv.cpUrl.trim());
   const wpConfigured = Boolean(activeEnv?.wpUrl && activeEnv.wpUrl.trim());
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Top Environment Selector Bar */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -112,16 +127,16 @@ export default function EnvironmentConsolePage() {
               Select an environment to manage portal URLs and dedicated test accounts.
             </p>
           </div>
-
         </div>
 
-        {/* 15 Environments Quick-Switch Bar */}
-        <div className="bg-white p-2 rounded-xl border border-slate-200/90 shadow-2xs">
-          <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs">
+        {/* 15 Environments Quick-Switch Bar - Wrapped in clean rows without horizontal scroll */}
+        <div className="bg-white p-3 rounded-xl border border-slate-200/90 shadow-2xs">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
             {environments.map((env) => {
               const count = accounts.filter((a) => a.environmentId === env.id).length;
               const isSelected = env.id === activeEnvId;
               const hasUrls = Boolean(env.cpUrl || env.wpUrl);
+              const displayName = env.name.replace(" (Training)", "");
 
               return (
                 <button
@@ -130,13 +145,13 @@ export default function EnvironmentConsolePage() {
                     setActiveEnvId(env.id);
                     setAccountSearch("");
                   }}
-                  className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg font-bold transition-all flex-shrink-0 ${
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
                     isSelected
                       ? "bg-emerald-800 text-white shadow-xs"
                       : "text-slate-700 hover:bg-slate-100 hover:text-slate-900 bg-slate-50 border border-slate-200/70"
                   }`}
                 >
-                  <span>{env.name}</span>
+                  <span>{displayName}</span>
                   {count > 0 && (
                     <span
                       className={`px-1.5 py-0.2 rounded-full text-[10px] ${
@@ -214,7 +229,7 @@ export default function EnvironmentConsolePage() {
                     <span className="truncate">{activeEnv.cpUrl}</span>
                   ) : (
                     <span className="text-slate-400 italic font-sans text-xs">
-                      No Consumer Portal URL configured
+                      No URL set
                     </span>
                   )}
                 </div>
@@ -263,7 +278,7 @@ export default function EnvironmentConsolePage() {
                     <span className="truncate">{activeEnv.wpUrl}</span>
                   ) : (
                     <span className="text-slate-400 italic font-sans text-xs">
-                      No Worker Portal URL configured
+                      No URL set
                     </span>
                   )}
                 </div>
@@ -342,7 +357,7 @@ export default function EnvironmentConsolePage() {
                     : `No test accounts created for ${activeEnv.name} yet`}
                 </p>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Add accounts with credentials, roles, and product support specifically for this environment.
+                  Add accounts with credentials and roles specifically for this environment.
                 </p>
                 <button
                   onClick={() => openAddAccount(activeEnv.id)}
@@ -357,24 +372,22 @@ export default function EnvironmentConsolePage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-200 uppercase tracking-wider text-[11px]">
                     <tr>
-                      <th className="py-3 px-4">Account Name</th>
+                      <th className="py-3 px-4">Username</th>
                       <th className="py-3 px-3">Portal</th>
                       <th className="py-3 px-3">Role</th>
-                      <th className="py-3 px-3">Product</th>
                       <th className="py-3 px-3">Tags</th>
-                      <th className="py-3 px-3">Username</th>
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredEnvAccounts.map((account) => (
+                    {filteredEnvAccounts.map((account, idx) => (
                       <tr
                         key={account.id}
                         onClick={() => openAccountDetail(account)}
                         className="hover:bg-slate-50/80 cursor-pointer transition-colors"
                       >
-                        <td className="py-3 px-4 font-semibold text-slate-900">
-                          {account.name}
+                        <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                          {account.username}
                         </td>
                         <td className="py-3 px-3">
                           <span
@@ -391,11 +404,6 @@ export default function EnvironmentConsolePage() {
                           {account.role}
                         </td>
                         <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
-                            {account.product}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3">
                           <div className="flex flex-wrap gap-1">
                             {account.tags.map((t) => (
                               <span
@@ -407,15 +415,12 @@ export default function EnvironmentConsolePage() {
                             ))}
                           </div>
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-600">
-                          {account.username}
-                        </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end space-x-1">
                             <button
-                              onClick={(e) => handleCopyUsername(e, account.username, account.id)}
-                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded"
-                              title="Copy username"
+                              onClick={(e) => handleCopyCredentials(e, account)}
+                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors"
+                              title="Copy <username>/<password>"
                             >
                               {copiedKey === account.id ? (
                                 <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -447,7 +452,12 @@ export default function EnvironmentConsolePage() {
                               </button>
 
                               {openActionId === account.id && (
-                                <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-30 text-left">
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`absolute right-0 ${
+                                    idx >= filteredEnvAccounts.length - 2 ? "bottom-full mb-1" : "top-full mt-1"
+                                  } w-40 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50 text-left`}
+                                >
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();

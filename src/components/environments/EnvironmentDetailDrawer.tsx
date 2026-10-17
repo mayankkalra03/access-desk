@@ -148,7 +148,7 @@ export function EnvironmentDetailDrawer({
               <div className="text-xs font-mono truncate py-1 text-slate-600">
                 {environment.cpUrl || (
                   <span className="italic text-slate-400 font-sans">
-                    URL not yet configured
+                    No URL set
                   </span>
                 )}
               </div>
@@ -193,7 +193,7 @@ export function EnvironmentDetailDrawer({
               <div className="text-xs font-mono truncate py-1 text-slate-600">
                 {environment.wpUrl || (
                   <span className="italic text-slate-400 font-sans">
-                    URL not yet configured
+                    No URL set
                   </span>
                 )}
               </div>
@@ -278,8 +278,8 @@ export function EnvironmentDetailDrawer({
                 >
                   <div className="truncate">
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors">
-                        {acc.name}
+                      <span className="text-sm font-semibold font-mono text-slate-900 group-hover:text-emerald-700 transition-colors">
+                        @{acc.username}
                       </span>
                       <span
                         className={`px-1.5 py-0.5 text-[10px] font-semibold rounded ${
@@ -292,15 +292,7 @@ export function EnvironmentDetailDrawer({
                       </span>
                       <span className="text-xs text-slate-500">{acc.role}</span>
                     </div>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <span className="text-xs font-mono text-slate-400">
-                        @{acc.username}
-                      </span>
-                      <span className="text-[10px] text-slate-400">·</span>
-                      <span className="text-xs text-slate-500">{acc.product}</span>
-                    </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-600 transition-colors" />
                 </div>
               ))}
             </div>

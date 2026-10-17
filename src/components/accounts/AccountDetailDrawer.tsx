@@ -138,12 +138,12 @@ export function AccountDetailDrawer({
       <div className="p-6 pb-4 border-b border-slate-100 flex items-start justify-between">
         <div className="flex items-center space-x-4">
           <div className="w-14 h-14 rounded-full bg-emerald-800 text-white font-bold text-lg flex items-center justify-center flex-shrink-0 shadow-sm">
-            {getInitials(account.name)}
+            {getInitials(account.username)}
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-xl font-bold text-slate-900 leading-tight">
-                {account.name}
+              <h2 className="text-xl font-bold font-mono text-slate-900 leading-tight">
+                {account.username}
               </h2>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1" />
@@ -151,7 +151,7 @@ export function AccountDetailDrawer({
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              {account.environmentId} · {account.portal === "CP" ? "Consumer Portal" : "Worker Portal"} · {account.role} · {account.product}
+              {account.environmentId} · {account.portal === "CP" ? "Consumer Portal" : "Worker Portal"} · {account.role}
             </p>
           </div>
         </div>
@@ -234,13 +234,6 @@ export function AccountDetailDrawer({
                   <span className="text-slate-800 font-medium">{account.role}</span>
                 </div>
 
-                <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                  <div className="flex items-center text-slate-500">
-                    <Shield className="w-4 h-4 mr-2.5 text-slate-400" />
-                    <span>Product</span>
-                  </div>
-                  <span className="text-slate-800 font-medium">{account.product}</span>
-                </div>
 
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
                   <div className="flex items-center text-slate-500">
@@ -440,20 +433,6 @@ export function AccountDetailDrawer({
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Security Audit Badge */}
-            <div className="p-4 rounded-lg bg-emerald-50/50 border border-emerald-200/60 text-xs text-emerald-950 space-y-2">
-              <div className="flex items-center space-x-2 font-bold text-emerald-900">
-                <Shield className="w-4 h-4 text-emerald-700" />
-                <span>Credential Security Guarantee</span>
-              </div>
-              <ul className="list-disc list-inside space-y-1 text-slate-600 text-[11px] leading-relaxed">
-                <li>Plaintext password is never stored in public Firestore documents.</li>
-                <li>Encrypted using AES-256-GCM with server-side authentication tag.</li>
-                <li>Decryption keys remain on trusted server-side execution.</li>
-                <li>Revealed credentials automatically purge upon drawer dismissal.</li>
-              </ul>
             </div>
           </div>
         )}

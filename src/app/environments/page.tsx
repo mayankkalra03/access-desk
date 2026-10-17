@@ -78,7 +78,7 @@ export default function EnvironmentsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Breadcrumbs */}
       <nav className="flex items-center space-x-2 text-xs text-slate-400">
         <Link href="/" className="hover:text-slate-700">Home</Link>
@@ -215,13 +215,10 @@ export default function EnvironmentsPage() {
                         <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mr-1.5" />
                         Consumer Portal (CP)
                       </span>
-                      <span className="text-slate-400 text-[10px]">
-                        {cpConfigured ? "Configured" : "Unset"}
-                      </span>
                     </div>
 
                     <p className="text-[11px] font-mono text-slate-500 truncate">
-                      {cpConfigured ? env.cpUrl : "No URL configured"}
+                      {cpConfigured ? env.cpUrl : "No URL set"}
                     </p>
 
                     <div className="flex items-center space-x-1.5 pt-1">
@@ -256,13 +253,10 @@ export default function EnvironmentsPage() {
                         <span className="w-1.5 h-1.5 rounded-full bg-purple-500 mr-1.5" />
                         Worker Portal (WP)
                       </span>
-                      <span className="text-slate-400 text-[10px]">
-                        {wpConfigured ? "Configured" : "Unset"}
-                      </span>
                     </div>
 
                     <p className="text-[11px] font-mono text-slate-500 truncate">
-                      {wpConfigured ? env.wpUrl : "No URL configured"}
+                      {wpConfigured ? env.wpUrl : "No URL set"}
                     </p>
 
                     <div className="flex items-center space-x-1.5 pt-1">

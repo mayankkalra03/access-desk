@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -21,9 +21,10 @@ import {
   Layers,
 } from "lucide-react";
 import { useAppShell } from "@/components/layout/AppShell";
-import { Account, PortalType, ProductType } from "@/types";
+import { Account, PortalType } from "@/types";
 import { filterAccounts } from "@/lib/search";
 import { useToast } from "@/lib/toast-context";
+import { dataService } from "@/lib/data-service";
 
 export default function AccountsPage() {
   const {
@@ -43,7 +44,6 @@ export default function AccountsPage() {
   const [selectedEnv, setSelectedEnv] = useState("all");
   const [selectedPortal, setSelectedPortal] = useState("all");
   const [selectedRole, setSelectedRole] = useState("all");
-  const [selectedProduct, setSelectedProduct] = useState("all");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagMatchMode, setTagMatchMode] = useState<"all" | "any">("all");
   const [sortBy, setSortBy] = useState<"updatedAt" | "name" | "environmentId">("updatedAt");
@@ -52,7 +52,6 @@ export default function AccountsPage() {
   // UI state
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [tagsDropdownOpen, setTagsDropdownOpen] = useState(false);
-  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
   const [copiedAccount, setCopiedAccount] = useState<string | null>(null);
 
@@ -67,7 +66,6 @@ export default function AccountsPage() {
       environmentId: selectedEnv,
       portal: selectedPortal,
       role: selectedRole,
-      product: selectedProduct,
       tags: selectedTags,
       tagMatchMode,
       sortBy,
@@ -79,7 +77,6 @@ export default function AccountsPage() {
     selectedEnv,
     selectedPortal,
     selectedRole,
-    selectedProduct,
     selectedTags,
     tagMatchMode,
     sortBy,
@@ -100,7 +97,6 @@ export default function AccountsPage() {
     selectedEnv !== "all" ||
     selectedPortal !== "all" ||
     selectedRole !== "all" ||
-    selectedProduct !== "all" ||
     selectedTags.length > 0;
 
   const clearAllFilters = () => {
@@ -108,32 +104,36 @@ export default function AccountsPage() {
     setSelectedEnv("all");
     setSelectedPortal("all");
     setSelectedRole("all");
-    setSelectedProduct("all");
     setSelectedTags([]);
     setCurrentPage(1);
   };
 
-  const handleCopyUsername = (e: React.MouseEvent, username: string, accountId: string) => {
+  const handleCopyCredentials = async (e: React.MouseEvent, account: Account) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(username);
-    setCopiedAccount(accountId);
-    success("Username copied", username);
-    setTimeout(() => setCopiedAccount(null), 2000);
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedAccountIds.length === paginatedAccounts.length) {
-      setSelectedAccountIds([]);
-    } else {
-      setSelectedAccountIds(paginatedAccounts.map((a) => a.id));
+    try {
+      const pwd = await dataService.revealAccountPassword(account.id);
+      const text = `${account.username}/${pwd}`;
+      await navigator.clipboard.writeText(text);
+      setCopiedAccount(account.id);
+      success("Credentials copied", text);
+      setTimeout(() => setCopiedAccount(null), 2000);
+    } catch {
+      await navigator.clipboard.writeText(account.username);
+      setCopiedAccount(account.id);
+      success("Username copied", account.username);
+      setTimeout(() => setCopiedAccount(null), 2000);
     }
   };
 
-  const toggleSelectOne = (id: string) => {
-    setSelectedAccountIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+  useEffect(() => {
+    const handleDocClick = () => {
+      setOpenActionMenuId(null);
+      setTagsDropdownOpen(false);
+    };
+    window.addEventListener("click", handleDocClick);
+    return () => window.removeEventListener("click", handleDocClick);
+  }, []);
+
 
   const formatRelativeTime = (isoString: string) => {
     const diff = Date.now() - new Date(isoString).getTime();
@@ -154,7 +154,7 @@ export default function AccountsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Breadcrumbs */}
       <nav className="flex items-center space-x-2 text-xs text-slate-400">
         <Link href="/" className="hover:text-slate-700">Home</Link>
@@ -256,28 +256,14 @@ export default function AccountsPage() {
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
           </div>
 
-          {/* Product Filter */}
-          <div className="relative">
-            <select
-              value={selectedProduct}
-              onChange={(e) => {
-                setSelectedProduct(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-2 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:border-emerald-600 appearance-none pr-7 cursor-pointer hover:bg-slate-50"
-            >
-              <option value="all">Product: All</option>
-              <option value="Both">Both</option>
-              <option value="ICHRA">ICHRA</option>
-              <option value="SHOP">SHOP</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
-          </div>
 
           {/* Tags Dropdown Selector */}
           <div className="relative">
             <button
-              onClick={() => setTagsDropdownOpen(!tagsDropdownOpen)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setTagsDropdownOpen(!tagsDropdownOpen);
+              }}
               className="flex items-center space-x-1.5 px-3 py-2 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-700 hover:bg-slate-50"
             >
               <Filter className="w-3.5 h-3.5 text-slate-500" />
@@ -288,7 +274,10 @@ export default function AccountsPage() {
             </button>
 
             {tagsDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-slate-200 p-3 z-30">
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-slate-200 p-3 z-40"
+              >
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 text-xs font-bold text-slate-700">
                   <span>Filter by Tags</span>
                   <div className="flex items-center space-x-1 text-[10px] font-normal text-slate-500">
@@ -300,34 +289,41 @@ export default function AccountsPage() {
                     </button>
                   </div>
                 </div>
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  {tags.map((tag) => {
-                    const isChecked = selectedTags.includes(tag.name);
-                    return (
-                      <label
-                        key={tag.id}
-                        className="flex items-center space-x-2 text-xs text-slate-700 hover:bg-slate-50 p-1.5 rounded cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            setSelectedTags((prev) =>
-                              isChecked
-                                ? prev.filter((t) => t !== tag.name)
-                                : [...prev, tag.name]
-                            );
-                            setCurrentPage(1);
-                          }}
-                          className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
-                        />
-                        <span className="truncate">{tag.name}</span>
-                        <span className="text-[10px] text-slate-400 ml-auto font-mono">
-                          {tag.category}
-                        </span>
-                      </label>
-                    );
-                  })}
+                <div className="max-h-56 overflow-y-auto space-y-1">
+                  {tags.length === 0 ? (
+                    <p className="text-xs text-slate-400 p-2 text-center">No tags found</p>
+                  ) : (
+                    tags.map((tag) => {
+                      const isChecked = selectedTags.includes(tag.name);
+                      const count = accounts.filter((a) => a.tags.includes(tag.name)).length;
+                      return (
+                        <label
+                          key={tag.id}
+                          className="flex items-center justify-between text-xs text-slate-700 hover:bg-slate-50 p-1.5 rounded cursor-pointer"
+                        >
+                          <div className="flex items-center space-x-2 truncate">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                setSelectedTags((prev) =>
+                                  isChecked
+                                    ? prev.filter((t) => t !== tag.name)
+                                    : [...prev, tag.name]
+                                );
+                                setCurrentPage(1);
+                              }}
+                              className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                            />
+                            <span className="truncate">{tag.name}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono ml-2">
+                            {count}
+                          </span>
+                        </label>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}
@@ -434,24 +430,11 @@ export default function AccountsPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-200 uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="py-3 px-4 w-10">
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedAccountIds.length > 0 &&
-                        selectedAccountIds.length === paginatedAccounts.length
-                      }
-                      onChange={toggleSelectAll}
-                      className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
-                    />
-                  </th>
-                  <th className="py-3 px-4 font-semibold">Account Name</th>
+                  <th className="py-3 px-4 font-semibold">Username</th>
                   <th className="py-3 px-3 font-semibold">Environment</th>
                   <th className="py-3 px-3 font-semibold">Portal</th>
                   <th className="py-3 px-3 font-semibold">Role</th>
-                  <th className="py-3 px-3 font-semibold">Product</th>
                   <th className="py-3 px-3 font-semibold">Tags</th>
-                  <th className="py-3 px-3 font-semibold">Username</th>
                   <th className="py-3 px-3 font-semibold">Updated</th>
                   <th className="py-3 px-4 text-right font-semibold">Actions</th>
                 </tr>
@@ -459,37 +442,20 @@ export default function AccountsPage() {
               <tbody className="divide-y divide-slate-100">
                 {paginatedAccounts.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-400 text-xs">
+                    <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
                       No accounts matched your filter criteria.
                     </td>
                   </tr>
                 ) : (
-                  paginatedAccounts.map((account) => {
-                    const isSelected = selectedAccountIds.includes(account.id);
+                  paginatedAccounts.map((account, idx) => {
                     return (
                       <tr
                         key={account.id}
                         onClick={() => openAccountDetail(account)}
-                        className={`hover:bg-slate-50/80 cursor-pointer transition-colors ${
-                          isSelected ? "bg-emerald-50/30" : ""
-                        }`}
+                        className="hover:bg-slate-50/80 cursor-pointer transition-colors"
                       >
-                        <td
-                          className="py-3 px-4"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleSelectOne(account.id);
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelectOne(account.id)}
-                            className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
-                          />
-                        </td>
-                        <td className="py-3 px-4 font-semibold text-slate-900">
-                          {account.name}
+                        <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                          {account.username}
                         </td>
                         <td className="py-3 px-3">
                           <span
@@ -515,11 +481,6 @@ export default function AccountsPage() {
                           {account.role}
                         </td>
                         <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
-                            {account.product}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3">
                           <div className="flex flex-wrap gap-1 max-w-[220px]">
                             {account.tags.slice(0, 2).map((tag) => (
                               <span
@@ -536,19 +497,16 @@ export default function AccountsPage() {
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-600">
-                          {account.username}
-                        </td>
                         <td className="py-3 px-3 text-slate-400 text-[11px]">
                           {formatRelativeTime(account.updatedAt)}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end space-x-1">
-                            {/* Copy username button */}
+                            {/* Copy credentials button */}
                             <button
-                              onClick={(e) => handleCopyUsername(e, account.username, account.id)}
-                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded"
-                              title="Copy username"
+                              onClick={(e) => handleCopyCredentials(e, account)}
+                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors"
+                              title="Copy <username>/<password>"
                             >
                               {copiedAccount === account.id ? (
                                 <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -585,7 +543,12 @@ export default function AccountsPage() {
                               </button>
 
                               {openActionMenuId === account.id && (
-                                <div className="absolute right-0 mt-1 w-44 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-30 text-left">
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`absolute right-0 ${
+                                    idx >= paginatedAccounts.length - 2 ? "bottom-full mb-1" : "top-full mt-1"
+                                  } w-44 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50 text-left`}
+                                >
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -707,8 +670,7 @@ export default function AccountsPage() {
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">{account.name}</h3>
-                  <p className="text-xs font-mono text-slate-400 mt-0.5">@{account.username}</p>
+                  <h3 className="font-bold font-mono text-slate-900 text-sm">@{account.username}</h3>
                 </div>
                 <span
                   className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getEnvBadgeColor(
@@ -730,8 +692,6 @@ export default function AccountsPage() {
                   {account.portal}
                 </span>
                 <span className="text-slate-600">{account.role}</span>
-                <span className="text-slate-400">·</span>
-                <span className="text-slate-600">{account.product}</span>
               </div>
 
               {account.tags.length > 0 && (
