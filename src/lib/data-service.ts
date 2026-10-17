@@ -2,14 +2,15 @@ import {
   collection,
   doc,
   getDocs,
+  getDoc,
   setDoc,
   deleteDoc,
   writeBatch,
 } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { db, functions } from "./firebase";
+import { db } from "./firebase";
 import { Account, AccountInput, Environment, Tag } from "@/types";
 import { INITIAL_ENVIRONMENTS } from "./seed-data";
+import { encryptCredential, decryptCredential, EncryptedData } from "./crypto";
 
 class DataService {
   private seeded = false;
@@ -73,19 +74,17 @@ class DataService {
     // Save account metadata to Firestore (never contains plaintext password)
     await setDoc(doc(db, "accounts", finalAccount.id), finalAccount);
 
-    // Save encrypted password via Cloud Function
-    if (password && password.trim() && functions) {
+    // Save AES-256 encrypted password to Firestore account_credentials
+    if (password && password.trim()) {
       try {
-        const saveCredFn = httpsCallable<
-          { accountId: string; password: string },
-          { success: boolean }
-        >(functions, "saveAccountCredential");
-        await saveCredFn({
+        const encrypted = await encryptCredential(password.trim());
+        await setDoc(doc(db, "account_credentials", finalAccount.id), {
+          ...encrypted,
           accountId: finalAccount.id,
-          password: password.trim(),
+          updatedAt: now,
         });
       } catch (err: any) {
-        console.warn("Cloud function saveAccountCredential error:", err?.message);
+        console.warn("Failed to encrypt and store credential:", err?.message);
       }
     }
 
@@ -96,34 +95,20 @@ class DataService {
     if (!db) throw new Error("Database unavailable.");
 
     await deleteDoc(doc(db, "accounts", accountId));
-
-    if (functions) {
-      try {
-        const deleteCredFn = httpsCallable<
-          { accountId: string },
-          { success: boolean }
-        >(functions, "deleteAccountCredential");
-        await deleteCredFn({ accountId });
-      } catch (err: any) {
-        console.warn("Cloud function deleteAccountCredential error:", err?.message);
-      }
-    }
+    try {
+      await deleteDoc(doc(db, "account_credentials", accountId));
+    } catch {}
   }
 
   async revealAccountPassword(accountId: string): Promise<string> {
-    if (!functions) {
-      throw new Error("Functions service is not available.");
-    }
+    if (!db) throw new Error("Database service is not available.");
 
-    const getCredFn = httpsCallable<
-      { accountId: string },
-      { password: string }
-    >(functions, "getAccountCredential");
-    const res = await getCredFn({ accountId });
-    if (!res.data?.password) {
+    const credDoc = await getDoc(doc(db, "account_credentials", accountId));
+    if (!credDoc.exists()) {
       throw new Error("No credential found for this account.");
     }
-    return res.data.password;
+    const data = credDoc.data() as EncryptedData;
+    return await decryptCredential(data);
   }
 
   async getTags(): Promise<Tag[]> {

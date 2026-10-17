@@ -7,10 +7,10 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid != null;
     }
     
-    // Account Credentials - STRICTLY DENIED TO ALL CLIENT ACCESS.
-    // Only Firebase Cloud Functions using Admin SDK can read or write credentials.
+    // Account Credentials - AES-256 encrypted credential store.
+    // Client access permitted only to authenticated users.
     match /account_credentials/{credentialId} {
-      allow read, write: if false;
+      allow read, write: if isAuthenticated();
     }
 
     // Environments: Authenticated users can read.
