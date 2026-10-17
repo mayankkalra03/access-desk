@@ -46,10 +46,22 @@ const AuthContext = createContext<AuthContextType>({
   isFirebaseActive: true,
 });
 
+const SESSION_CACHE_KEY = "accessdesk_auth_session";
+
+function getCachedProfile(): UserProfile | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(SESSION_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as UserProfile) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [profile, setProfile] = useState<UserProfile | null>(() => getCachedProfile());
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !getCachedProfile());
 
   useEffect(() => {
     if (!auth) {
@@ -70,16 +82,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } catch {}
 
-        setProfile({
+        const resolvedProfile: UserProfile = {
           uid: firebaseUser.uid,
           email: firebaseUser.email || "user@internal.accessdesk.io",
           username: resolvedUsername,
           displayName: firebaseUser.displayName || resolvedUsername || "Authorized User",
           isAuthorized: true,
           isOwner: true,
-        });
+        };
+        setProfile(resolvedProfile);
+        try {
+          localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(resolvedProfile));
+        } catch {}
       } else {
         setProfile(null);
+        try {
+          localStorage.removeItem(SESSION_CACHE_KEY);
+        } catch {}
       }
       setLoading(false);
     });
@@ -240,6 +259,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (auth) {
       await fbSignOut(auth);
     }
+    try {
+      localStorage.removeItem(SESSION_CACHE_KEY);
+    } catch {}
     setUser(null);
     setProfile(null);
   };
