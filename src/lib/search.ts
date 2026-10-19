@@ -11,6 +11,112 @@ export interface AccountFilterOptions {
   sortOrder?: "asc" | "desc";
 }
 
+/**
+ * Builds a search corpus string containing all indexed account fields,
+ * including spaced environment variants (e.g. "DEV2" and "DEV 2").
+ */
+export function getAccountSearchCorpus(account: Account): string {
+  const parts = [
+    account.name,
+    account.username,
+    account.username.replace(/^@/, ""),
+    account.environmentId,
+    account.environmentId.replace(/([a-zA-Z]+)(\d+)/, "$1 $2"),
+    account.role,
+    account.portal,
+    account.portal === "CP"
+      ? "consumer portal"
+      : account.portal === "WP"
+      ? "worker portal admin"
+      : "",
+    ...(account.tags || []),
+    account.organization || "",
+    account.notes || "",
+  ];
+  return parts.join(" ").toLowerCase();
+}
+
+/**
+ * Matches an account against a free-text search query.
+ * Supports multi-token and cross-field matching (e.g. "dev2 broker").
+ */
+export function matchAccountQuery(account: Account, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  const corpus = getAccountSearchCorpus(account);
+
+  // Exact phrase substring match
+  if (corpus.includes(q)) return true;
+
+  // Multi-token match: every word/token in the query must match the corpus
+  const tokens = q.split(/[\s,]+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+
+  return tokens.every((token) => corpus.includes(token));
+}
+
+/**
+ * Builds a search corpus string for an environment.
+ */
+export function getEnvironmentSearchCorpus(env: Environment): string {
+  const parts = [
+    env.id,
+    env.id.replace(/([a-zA-Z]+)(\d+)/, "$1 $2"),
+    env.name,
+    env.name.replace(/([a-zA-Z]+)(\d+)/, "$1 $2"),
+    env.description || "",
+    env.cpUrl || "",
+    env.wpUrl || "",
+  ];
+  return parts.join(" ").toLowerCase();
+}
+
+/**
+ * Matches an environment against a free-text search query.
+ */
+export function matchEnvironmentQuery(env: Environment, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  const corpus = getEnvironmentSearchCorpus(env);
+
+  if (corpus.includes(q)) return true;
+
+  const tokens = q.split(/[\s,]+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+
+  return tokens.every((token) => corpus.includes(token));
+}
+
+function getAccountMatchScore(account: Account, query: string, tokens: string[]): number {
+  const q = query.trim().toLowerCase();
+  const username = account.username.toLowerCase();
+  const name = account.name.toLowerCase();
+  const env = account.environmentId.toLowerCase();
+  const role = account.role.toLowerCase();
+
+  let score = 0;
+  if (username === q || username.replace(/^@/, "") === q) score += 100;
+  else if (username.includes(q)) score += 50;
+
+  if (name === q) score += 80;
+  else if (name.includes(q)) score += 40;
+
+  if (env === q) score += 60;
+  if (role === q) score += 50;
+
+  for (const token of tokens) {
+    if (username.includes(token)) score += 25;
+    if (name.includes(token)) score += 15;
+    if (env.includes(token)) score += 20;
+    if (role.includes(token)) score += 15;
+    if (account.tags.some((t) => t.toLowerCase().includes(token))) score += 10;
+  }
+
+  return score;
+}
+
 export function filterAccounts(
   accounts: Account[],
   options: AccountFilterOptions
@@ -44,7 +150,6 @@ export function filterAccounts(
       return false;
     }
 
-
     // Tag filter
     if (tags && tags.length > 0) {
       if (tagMatchMode === "all") {
@@ -56,27 +161,9 @@ export function filterAccounts(
       }
     }
 
-    // Free text search
+    // Free text search supporting multi-token cross-field queries
     if (normalizedSearch) {
-      const matchName = account.name.toLowerCase().includes(normalizedSearch);
-      const matchUsername = account.username.toLowerCase().includes(normalizedSearch);
-      const matchEnv = account.environmentId.toLowerCase().includes(normalizedSearch);
-      const matchRole = account.role.toLowerCase().includes(normalizedSearch);
-      const matchPortal = account.portal.toLowerCase().includes(normalizedSearch);
-      const matchTags = account.tags.some((t) => t.toLowerCase().includes(normalizedSearch));
-      const matchOrg = account.organization?.toLowerCase().includes(normalizedSearch) || false;
-      const matchNotes = account.notes?.toLowerCase().includes(normalizedSearch) || false;
-
-      if (
-        !matchName &&
-        !matchUsername &&
-        !matchEnv &&
-        !matchRole &&
-        !matchPortal &&
-        !matchTags &&
-        !matchOrg &&
-        !matchNotes
-      ) {
+      if (!matchAccountQuery(account, normalizedSearch)) {
         return false;
       }
     }
@@ -118,26 +205,17 @@ export function searchGlobal(
     return { environments: [], accounts: [] };
   }
 
-  const matchedEnvs = environments.filter((env) => {
-    return (
-      env.name.toLowerCase().includes(q) ||
-      (env.description && env.description.toLowerCase().includes(q)) ||
-      (env.cpUrl && env.cpUrl.toLowerCase().includes(q)) ||
-      (env.wpUrl && env.wpUrl.toLowerCase().includes(q))
-    );
-  });
+  const tokens = q.split(/[\s,]+/).filter(Boolean);
 
-  const matchedAccounts = accounts.filter((account) => {
-    return (
-      account.name.toLowerCase().includes(q) ||
-      account.username.toLowerCase().includes(q) ||
-      account.environmentId.toLowerCase().includes(q) ||
-      account.role.toLowerCase().includes(q) ||
-      account.portal.toLowerCase().includes(q) ||
-      account.tags.some((t) => t.toLowerCase().includes(q)) ||
-      (account.organization && account.organization.toLowerCase().includes(q)) ||
-      (account.notes && account.notes.toLowerCase().includes(q))
-    );
+  const matchedEnvs = environments.filter((env) => matchEnvironmentQuery(env, q));
+  const matchedAccounts = accounts.filter((account) => matchAccountQuery(account, q));
+
+  // Sort matched accounts by relevance score
+  matchedAccounts.sort((a, b) => {
+    const scoreA = getAccountMatchScore(a, q, tokens);
+    const scoreB = getAccountMatchScore(b, q, tokens);
+    if (scoreA !== scoreB) return scoreB - scoreA;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
   return {

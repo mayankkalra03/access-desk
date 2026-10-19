@@ -19,6 +19,7 @@ import { useAppShell } from "@/components/layout/AppShell";
 import { Environment, Account } from "@/types";
 import { useToast } from "@/lib/toast-context";
 import { dataService } from "@/lib/data-service";
+import { matchAccountQuery } from "@/lib/search";
 
 export default function EnvironmentConsolePage() {
   const {
@@ -51,15 +52,7 @@ export default function EnvironmentConsolePage() {
 
   const filteredEnvAccounts = useMemo(() => {
     if (!accountSearch.trim()) return envAccounts;
-    const term = accountSearch.toLowerCase();
-    return envAccounts.filter(
-      (a) =>
-        a.name.toLowerCase().includes(term) ||
-        a.username.toLowerCase().includes(term) ||
-        a.role.toLowerCase().includes(term) ||
-        a.portal.toLowerCase().includes(term) ||
-        a.tags.some((t) => t.toLowerCase().includes(term))
-    );
+    return envAccounts.filter((a) => matchAccountQuery(a, accountSearch));
   }, [envAccounts, accountSearch]);
 
   const handleCopyUrl = (e: React.MouseEvent, url: string, key: string, label: string) => {

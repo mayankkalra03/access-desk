@@ -154,4 +154,26 @@ describe("AccessDesk Filter & Search System", () => {
     expect(searchRes.accounts).toHaveLength(1);
     expect(searchRes.accounts[0].name).toBe("Jane Doe");
   });
+
+  it("supports multi-word cross-field search like 'dev2 broker'", () => {
+    const searchRes = searchGlobal(mockAccounts, mockEnvironments, "dev2 broker");
+    expect(searchRes.accounts).toHaveLength(1);
+    expect(searchRes.accounts[0].username).toBe("acme.broker");
+    expect(searchRes.accounts[0].environmentId).toBe("DEV2");
+    expect(searchRes.accounts[0].role).toBe("Broker");
+  });
+
+  it("supports spaced environment queries like 'dev 2 broker'", () => {
+    const searchRes = searchGlobal(mockAccounts, mockEnvironments, "dev 2 broker");
+    expect(searchRes.accounts).toHaveLength(1);
+    expect(searchRes.accounts[0].username).toBe("acme.broker");
+  });
+
+  it("filters accounts with multi-word search in filterAccounts", () => {
+    const results = filterAccounts(mockAccounts, {
+      search: "dev2 broker",
+    });
+    expect(results).toHaveLength(1);
+    expect(results[0].username).toBe("acme.broker");
+  });
 });
